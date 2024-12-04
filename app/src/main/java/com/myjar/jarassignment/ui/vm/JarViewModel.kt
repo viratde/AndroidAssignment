@@ -6,6 +6,7 @@ import com.myjar.jarassignment.createRetrofit
 import com.myjar.jarassignment.data.model.ComputerItem
 import com.myjar.jarassignment.data.repository.JarRepository
 import com.myjar.jarassignment.data.repository.JarRepositoryImpl
+import com.myjar.jarassignment.ui.states.ItemsListScreenState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,8 +15,8 @@ import kotlinx.coroutines.launch
 
 class JarViewModel : ViewModel() {
 
-    private val _listStringData = MutableStateFlow<List<ComputerItem>>(emptyList())
-    val listStringData: StateFlow<List<ComputerItem>>
+    private val _listStringData = MutableStateFlow(ItemsListScreenState())
+    val state: StateFlow<ItemsListScreenState>
         get() = _listStringData
 
     private val repository: JarRepository = JarRepositoryImpl(createRetrofit())
@@ -24,7 +25,9 @@ class JarViewModel : ViewModel() {
         viewModelScope.launch {
             try { // added this because sometimes network is failing
                 _listStringData.update {
-                    repository.fetchResults()
+                    it.copy(
+                        computerItems = repository.fetchResults()
+                    )
                 }
             } catch (err: Exception) {
                 if (err is CancellationException) throw err
@@ -33,15 +36,27 @@ class JarViewModel : ViewModel() {
     }
 
     fun getItemById(itemId: String): ComputerItem? {
-        return _listStringData.value.find { it.id == itemId }
+        return _listStringData.value.computerItems.find { it.id == itemId }
     }
 
-    fun sortComputerItemsByQuery(query: String) {
+    fun updateSelectedItemId(itemId: String?) {
         _listStringData.update {
-            val result = it.partition { item ->
-                item.toString().lowercase().contains(query)
+            it.copy(
+                selectedItemId = itemId
+            )
+        }
+    }
+
+    fun updateQuery(query: String) {
+        if (query.isNotEmpty()) {
+            _listStringData.update {
+                it.copy(
+                    computerItems = it.computerItems.partition { item ->
+                        item.toString().lowercase().contains(query)
+                    }.let { it.first + it.second },
+                    query = query
+                )
             }
-            result.first + result.second
         }
     }
 

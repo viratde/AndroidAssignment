@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +32,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.myjar.jarassignment.R
 import com.myjar.jarassignment.data.model.ComputerItem
+import com.myjar.jarassignment.ui.states.ItemsListScreenState
 import com.myjar.jarassignment.ui.vm.JarViewModel
 
 @Composable
@@ -42,7 +41,7 @@ fun AppNavigation(
     viewModel: JarViewModel,
 ) {
     val navController = rememberNavController()
-    val navigate = remember { mutableStateOf("") }
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     NavHost(
         modifier = modifier
@@ -52,51 +51,49 @@ fun AppNavigation(
     ) {
         composable("item_list") {
             ItemListScreen(
-                viewModel = viewModel,
-                onNavigateToDetail = { selectedItem -> navigate.value = selectedItem },
-                navigateValue = navigate.value,
-                navController = navController
+                state = state,
+                onNavigateToDetail = { selectedItem ->
+                    if (selectedItem.isNotEmpty()) {
+                        navController.navigate("item_detail/${selectedItem}")
+                        viewModel.updateSelectedItemId(selectedItem)
+                    }
+                },
+                onQueryUpdate = { query ->
+                    viewModel.updateQuery(query)
+                }
             )
         }
         composable("item_detail/{itemId}") { backStackEntry ->
-            BackHandler(
-                enabled = true
-            ) {
-                navigate.value = ""
-                navController.navigate("item_list") {
-                    popUpTo("item_list") {
-                        inclusive = true
-                    }
+            val itemId = backStackEntry.arguments?.getString("itemId")
+            var item by remember { mutableStateOf<ComputerItem?>(null) }
+
+            LaunchedEffect(itemId) {
+                if (itemId != null) {
+                    item = viewModel.getItemById(itemId)
                 }
             }
-            val itemId = backStackEntry.arguments?.getString("itemId")
-            ItemDetailScreen(itemId = itemId, viewModel = viewModel)
+            ItemDetailScreen(
+                item = item,
+                onBack = {
+                    viewModel.updateSelectedItemId("")
+                    navController.navigate("item_list") {
+                        popUpTo("item_list") {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
+
         }
     }
 }
 
 @Composable
 fun ItemListScreen(
-    viewModel: JarViewModel,
+    state: ItemsListScreenState,
     onNavigateToDetail: (String) -> Unit,
-    navigateValue: String,
-    navController: NavHostController
+    onQueryUpdate: (String) -> Unit,
 ) {
-    val items = viewModel.listStringData.collectAsStateWithLifecycle()
-
-    if (navigateValue.isNotBlank()) {
-        val currRoute = navController.currentDestination?.route.orEmpty()
-        if (!currRoute.contains("item_detail")) {
-            navController.navigate("item_detail/$navigateValue")
-        }
-    }
-
-    var query by remember { mutableStateOf("") }
-
-    LaunchedEffect (query){
-        viewModel.sortComputerItemsByQuery(query)
-    }
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -105,14 +102,14 @@ fun ItemListScreen(
 
         item {
             ItemSearchBar(
-                query = query,
-                onQueryChange = {
-                    query = it
+                query = state.query,
+                onQueryChange = { query ->
+                    onQueryUpdate(query)
                 }
             )
         }
 
-        items(items.value) { item ->
+        items(state.computerItems) { item ->
             ItemCard(
                 item = item,
                 onClick = { onNavigateToDetail(item.id) }
@@ -147,18 +144,12 @@ fun ItemCard(item: ComputerItem, onClick: () -> Unit) {
 
 @Composable
 fun ItemDetailScreen(
-    itemId: String?,
-    viewModel: JarViewModel
+    item: ComputerItem?,
+    onBack: () -> Unit
 ) {
-
-    var item by remember { mutableStateOf<ComputerItem?>(null) }
-
-    LaunchedEffect(itemId) {
-        if (itemId != null) {
-            item = viewModel.getItemById(itemId)
-        }
-    }
-
+    BackHandler(
+        onBack = onBack
+    )
     // Fetch the item details based on the itemId
     // Here, you can fetch it from the ViewModel or repository
     if (item != null) {
@@ -167,17 +158,17 @@ fun ItemDetailScreen(
                 .fillMaxSize()
                 .padding(8.dp)
         ) {
-            ItemCardHeaderText(item!!.name)
-            ItemCardDetailsText(item!!.data?.color, "Color")
-            ItemCardDetailsText(item!!.data?.capacity, "Capacity")
-            ItemCardDetailsText(item!!.data?.price?.let { "$${it}" }, "Price")
-            ItemCardDetailsText(item!!.data?.screenSize?.toString(), "Screen Size")
-            ItemCardDetailsText(item!!.data?.description, "Description")
-            ItemCardDetailsText(item!!.data?.generation, "Generation")
-            ItemCardDetailsText(item!!.data?.strapColour, "Strap Color")
-            ItemCardDetailsText(item!!.data?.caseSize, "Case Size")
-            ItemCardDetailsText(item!!.data?.cpuModel, "Cpu Model")
-            ItemCardDetailsText(item!!.data?.hardDiskSize, "Hard Disk Size")
+            ItemCardHeaderText(item.name)
+            ItemCardDetailsText(item.data?.color, "Color")
+            ItemCardDetailsText(item.data?.capacity, "Capacity")
+            ItemCardDetailsText(item.data?.price?.let { "$${it}" }, "Price")
+            ItemCardDetailsText(item.data?.screenSize?.toString(), "Screen Size")
+            ItemCardDetailsText(item.data?.description, "Description")
+            ItemCardDetailsText(item.data?.generation, "Generation")
+            ItemCardDetailsText(item.data?.strapColour, "Strap Color")
+            ItemCardDetailsText(item.data?.caseSize, "Case Size")
+            ItemCardDetailsText(item.data?.cpuModel, "Cpu Model")
+            ItemCardDetailsText(item.data?.hardDiskSize, "Hard Disk Size")
         }
     } else {
         Column(
