@@ -6,6 +6,7 @@ import com.myjar.jarassignment.createRetrofit
 import com.myjar.jarassignment.data.model.ComputerItem
 import com.myjar.jarassignment.data.repository.JarRepository
 import com.myjar.jarassignment.data.repository.JarRepositoryImpl
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -21,15 +22,27 @@ class JarViewModel : ViewModel() {
 
     fun fetchData() {
         viewModelScope.launch {
-            _listStringData.update {
-                repository.fetchResults()
-                    .apply { println("The network call completed with value $this") }
+            try { // added this because sometimes network is failing
+                _listStringData.update {
+                    repository.fetchResults()
+                }
+            } catch (err: Exception) {
+                if (err is CancellationException) throw err
             }
         }
     }
 
     fun getItemById(itemId: String): ComputerItem? {
         return _listStringData.value.find { it.id == itemId }
+    }
+
+    fun sortComputerItemsByQuery(query: String) {
+        _listStringData.update {
+            val result = it.partition { item ->
+                item.toString().lowercase().contains(query)
+            }
+            result.first + result.second
+        }
     }
 
 }

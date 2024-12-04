@@ -83,6 +83,7 @@ fun ItemListScreen(
     navController: NavHostController
 ) {
     val items = viewModel.listStringData.collectAsStateWithLifecycle()
+
     if (navigateValue.isNotBlank()) {
         val currRoute = navController.currentDestination?.route.orEmpty()
         if (!currRoute.contains("item_detail")) {
@@ -90,11 +91,27 @@ fun ItemListScreen(
         }
     }
 
+    var query by remember { mutableStateOf("") }
+
+    LaunchedEffect (query){
+        viewModel.sortComputerItemsByQuery(query)
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+
+        item {
+            ItemSearchBar(
+                query = query,
+                onQueryChange = {
+                    query = it
+                }
+            )
+        }
+
         items(items.value) { item ->
             ItemCard(
                 item = item,
@@ -126,7 +143,6 @@ fun ItemCard(item: ComputerItem, onClick: () -> Unit) {
         ItemCardDetailsText(item.data?.hardDiskSize, "Hard Disk Size")
     }
 }
-
 
 
 @Composable
