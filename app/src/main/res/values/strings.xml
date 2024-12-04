@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">JarAssignment</string>
+    <string name="not_found_item">Item not Found.</string>
+    <string name="enter_query">Search ...</string>
 </resources>

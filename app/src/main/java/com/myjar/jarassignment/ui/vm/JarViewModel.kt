@@ -8,6 +8,7 @@ import com.myjar.jarassignment.data.repository.JarRepository
 import com.myjar.jarassignment.data.repository.JarRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class JarViewModel : ViewModel() {
@@ -20,7 +21,15 @@ class JarViewModel : ViewModel() {
 
     fun fetchData() {
         viewModelScope.launch {
-            repository.fetchResults()
+            _listStringData.update {
+                repository.fetchResults()
+                    .apply { println("The network call completed with value $this") }
+            }
         }
     }
+
+    fun getItemById(itemId: String): ComputerItem? {
+        return _listStringData.value.find { it.id == itemId }
+    }
+
 }
